@@ -96,6 +96,7 @@ protected:
 
 	int32 Count_Column = 0;
 	int32 Count_Row = 0;
+	int32 Affected_Rows = 0;
 
 public:
 
@@ -119,14 +120,23 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetColumnNumber();
 
+	/*
+	* You can use this after "Record Result" function.
+	*/
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetRowNumber();
+
+	UFUNCTION(BlueprintPure)
+	virtual int32 GetAffectedRows();
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetColumn(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex);
+	virtual bool GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex);
+
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumnIndex);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell);

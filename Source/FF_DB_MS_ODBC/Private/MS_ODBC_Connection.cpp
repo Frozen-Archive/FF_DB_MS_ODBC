@@ -121,13 +121,23 @@ bool UMS_ODBC_Result::SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_H
         return false;
     }
 
+    SQLRETURN RetCode;
+
     SQLSMALLINT Temp_Count_Column = 0;
-    SQLRETURN RetCode = SQLNumResultCols(In_Handle, &Temp_Count_Column);
+    RetCode = SQLNumResultCols(In_Handle, &Temp_Count_Column);
 
     if (!SQL_SUCCEEDED(RetCode))
     {
         Out_Code = "FF Microsoft ODBC : There was a problem while counting columns !";
         return false;
+    }
+
+    SQLLEN AffectedRows;
+    SQLRowCount(In_Handle, &AffectedRows);
+    
+    if (AffectedRows != -1)
+    {
+        this->Affected_Rows = AffectedRows;
     }
 
     this->Count_Column = Temp_Count_Column;
@@ -170,7 +180,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
     }
 
     TMap<FVector2D, FMS_ODBC_DataValue> Temp_Data_Pool;
-    int32 Temp_Count_Row = 0;
+    int32 Index_Row = 0;
 
     try
     {
@@ -197,11 +207,11 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     EachData.ColumnName = EachMetaData.Column_Name;
                     EachData.DataType = EachMetaData.DataType;
 
-                    Temp_Data_Pool.Add(FVector2D(Temp_Count_Row, Index_Column_Raw), EachData);
+                    Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
                 }
             }
 
-            Temp_Count_Row += 1;
+            Index_Row += 1;
         }
     }
 
@@ -211,9 +221,8 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
         return false;
     }
 
-    this->Count_Row = Temp_Count_Row;
     this->Data_Pool = Temp_Data_Pool;
-    
+    this->Count_Row = Index_Row;
     this->bIsResultRecorded = true;
    
     Out_Code = "FF Microsoft ODBC : Result successfuly recorded !";
@@ -277,6 +286,11 @@ int32 UMS_ODBC_Result::GetRowNumber()
     return this->Count_Row;
 }
 
+int32 UMS_ODBC_Result::GetAffectedRows()
+{
+    return this->Affected_Rows;
+}
+
 bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex)
 {
     if (this->Data_Pool.IsEmpty())
@@ -302,7 +316,7 @@ bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_
     return true;
 }
 
-bool UMS_ODBC_Result::GetColumn(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex)
+bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex)
 {
     if (this->Data_Pool.IsEmpty())
     {
@@ -325,6 +339,17 @@ bool UMS_ODBC_Result::GetColumn(FString& Out_Code, TArray<FMS_ODBC_DataValue>& O
 
     Out_Values = Temp_Array;
     return true;
+}
+
+bool UMS_ODBC_Result::GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumnIndex)
+{
+    FString MetaDataCode;
+    TArray<FMS_ODBC_MetaData> Array_MetaData;
+    this->GetMetaData(MetaDataCode, Array_MetaData);
+
+
+
+    return false;
 }
 
 bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell)
