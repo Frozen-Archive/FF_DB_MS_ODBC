@@ -3,6 +3,10 @@
 // UE Includes.
 #include "Kismet/KismetMathLibrary.h"
 
+#define SQL_MAX_TEXT_LENGHT 65535
+
+// CONNECTION
+
 bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
 {
     if (TargetServer.IsEmpty())
@@ -55,7 +59,7 @@ bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedStr
     return true;
 }
 
-bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query)
+bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults)
 {
     if (!this->SQL_Handle_Connection)
     {
@@ -92,14 +96,23 @@ bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Res
         return false;
     }
 
-    SQLSMALLINT ColumnCount = 0;
-    SQLNumResultCols(Temp_Handle, &ColumnCount);
-    Out_Code = "FF Microsoft ODBC : Query executed sucessfully. Found column number : " + FString::FromInt(ColumnCount);
+    FString RetCode_SetStatement;
+    UMS_ODBC_Result* TempResultObject = NewObject<UMS_ODBC_Result>();
 
+    if (!TempResultObject->SetStatementHandle(RetCode_SetStatement, Temp_Handle, bRecordResults))
+    {
+        Out_Code = "FF Microsoft ODBC : Query executed successfully but there was a problem to set query result ! : " + RetCode_SetStatement;
+        return false;
+    }
+
+    Out_Result = TempResultObject;
+    Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";
     return true;
 }
 
-bool UMS_ODBC_Result::SetStatementHandle(FString& Out_Code, SQLHSTMT* In_Handle)
+// RESULT - ADVANCE
+
+bool UMS_ODBC_Result::SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_Handle, bool bRecordResults)
 {
     if (!In_Handle)
     {
@@ -107,70 +120,65 @@ bool UMS_ODBC_Result::SetStatementHandle(FString& Out_Code, SQLHSTMT* In_Handle)
         return false;
     }
 
+    SQLSMALLINT Temp_Count_Column = 0;
+    SQLRETURN RetCode = SQLNumResultCols(In_Handle, &Temp_Count_Column);
+
+    if (!SQL_SUCCEEDED(RetCode))
+    {
+        Out_Code = "FF Microsoft ODBC : There was a problem while counting columns !";
+        return false;
+    }
+
+    this->Count_Column = Temp_Count_Column;
     this->SQL_Handle_Statement = In_Handle;
 
-    FString RecordError;
-    bool bRecordResult = this->RecordDataToPool(RecordError);
+    if (bRecordResults)
+    {
+        FString RecordCode;
 
-    Out_Code = bRecordResult ? "FF Microsoft ODBC : Statement is set !" : RecordError;
-    return bRecordResult;
+        if (!this->RecordResult(RecordCode))
+        {
+            Out_Code = "FF Microsoft ODBC : Result record problem : " + RecordCode;
+            return false;
+        }
+    }
+
+    Out_Code = "FF Microsoft ODBC : Statement set successfully !";
+    return true;
 }
 
-int32 UMS_ODBC_Result::GetColumnNumber()
+bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
 {
-    if (!this->SQL_Handle_Statement)
-    {
-        return 0;
-    }
-
-    SQLSMALLINT ColumnCount = 0;
-    if (SQL_SUCCESS == SQLNumResultCols(this->SQL_Handle_Statement, &ColumnCount))
-    {
-        return (int32)ColumnCount;
-    }
-
-    else
-    {
-        return 0;
-    }
-}
-
-bool UMS_ODBC_Result::RecordDataToPool(FString& Out_Code)
-{
-    if (!this->SQL_Handle_Statement)
-    {
-        return false;
-    }
-
-    const int32 ColumnCount = this->GetColumnNumber();
-
-    if (ColumnCount == 0)
-    {
-        return false;
-    }
+    TMap<FVector2D, FMS_ODBC_DataValue> Temp_Data_Pool;
+    int32 Temp_Count_Row = 0;
 
     try
     {
-        TMap<FVector2D, FString> All_Data;
-
-        int32 TempRowCount = 0;
-        while (SQLFetch(this->SQL_Handle_Statement))
+        while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
         {
-            for (int32 Index_Column = 0; Index_Column < ColumnCount; Index_Column++)
+            for (int32 Index_Column_Raw = 0; Index_Column_Raw < this->Count_Column; Index_Column_Raw++)
             {
-                SQLCHAR* ValuePointer = (SQLCHAR*)malloc(64);
-                SQLGetData(SQL_Handle_Statement, Index_Column, SQL_CHAR, ValuePointer, 64, NULL);
+                const int32 Index_Column = Index_Column_Raw + 1;
 
-                FString EachString = UTF8_TO_TCHAR((const char*)ValuePointer);
-                All_Data.Add(FVector2D(TempRowCount, Index_Column), EachString);
+                SQLCHAR Value[SQL_MAX_TEXT_LENGHT];
+                SQLLEN indicator;
+                FString ColumnValue;
+                SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, Value, sizeof(Value), &indicator);
+
+                if (SQL_SUCCEEDED(RetCode))
+                {
+                    FString EachValueString = UTF8_TO_TCHAR((const char*)Value);
+                    EachValueString.TrimEndInline();
+
+                    FMS_ODBC_DataValue EachData;
+                    EachData.ValueRepresentation = EachValueString;
+
+                    Temp_Data_Pool.Add(FVector2D(Temp_Count_Row, Index_Column_Raw), EachData);
+                }
             }
 
-            TempRowCount += 1;
-            GEngine->AddOnScreenDebugMessage(-1, 10, FColor::Red, "New Row");
+            Temp_Count_Row += 1;
         }
-
-        this->Data_Pool = All_Data;
-        this->RowCount = TempRowCount;
     }
 
     catch (const std::exception& Exception)
@@ -179,10 +187,70 @@ bool UMS_ODBC_Result::RecordDataToPool(FString& Out_Code)
         return false;
     }
 
+    this->Count_Row = Temp_Count_Row;
+    this->Data_Pool = Temp_Data_Pool;
+
     return true;
 }
 
-bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FString>& Out_Values, int32 RowIndex)
+bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnNumber)
+{
+    if (ColumnNumber < 1)
+    {
+        Out_Code = "FF Microsoft ODBC : Column index starts from 1 !";
+        return false;
+    }
+
+    if (!this->SQL_Handle_Statement)
+    {
+        Out_Code = "FF Microsoft ODBC : Statement handle is not valid !";
+        return false;
+    }
+
+    TArray<FString> Array_Temp;
+
+    try
+    {
+        int32 TempRowCount = 0;
+        while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
+        {
+            SQLCHAR Value[SQL_MAX_TEXT_LENGHT];
+            SQLLEN indicator;
+            FString ColumnValue;
+            SQLGetData(this->SQL_Handle_Statement, ColumnNumber, SQL_CHAR, Value, sizeof(Value), &indicator);
+
+            FString EachData = UTF8_TO_TCHAR((const char*)Value);
+            EachData.TrimEndInline();
+            Array_Temp.Add(EachData);
+
+            TempRowCount += 1;
+        }
+    }
+
+    catch (const std::exception& Exception)
+    {
+        Out_Code = Exception.what();
+        return false;
+    }
+
+    Out_Values = Array_Temp;
+    Out_Code = "FF Microsoft ODBC : Parsing completed successfully !";
+    return true;
+}
+
+// RESULT - STANDARD
+
+int32 UMS_ODBC_Result::GetColumnNumber()
+{
+    return this->Count_Column;
+}
+
+int32 UMS_ODBC_Result::GetRowNumber()
+{
+    return this->Count_Row;
+}
+
+bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex)
 {
     if (this->Data_Pool.IsEmpty())
     {
@@ -190,16 +258,15 @@ bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FString>& Out_Values, int
         return false;
     }
 
-    if (RowIndex < 0 && this->RowCount >= RowIndex)
+    if (RowIndex < 0 && this->Count_Row >= RowIndex)
     {
         Out_Code = "Given row index is out of data pool's range !";
         return false;
     }
 
-    const int32 ColumnsCount = this->GetColumnNumber();
-    TArray<FString> Temp_Array;
+    TArray<FMS_ODBC_DataValue> Temp_Array;
 
-    for (int32 Index_Column = 0; Index_Column < ColumnsCount; Index_Column++)
+    for (int32 Index_Column = 0; Index_Column < this->Count_Column; Index_Column++)
     {
         Temp_Array.Add(*this->Data_Pool.Find(FVector2D(RowIndex, Index_Column)));
     }

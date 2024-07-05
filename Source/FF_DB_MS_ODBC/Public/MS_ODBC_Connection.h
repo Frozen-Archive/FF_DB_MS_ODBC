@@ -53,7 +53,7 @@ public:
 	virtual bool ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query);
+	virtual bool SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults);
 };
 
 UCLASS(BlueprintType)
@@ -63,19 +63,33 @@ class FF_DB_MS_ODBC_API UMS_ODBC_Result : public UObject
 
 protected:
 
-	TMap<FVector2D, FString> Data_Pool;
-	SQLHSTMT* SQL_Handle_Statement;
-	int32 RowCount = 0;
+	SQLHSTMT SQL_Handle_Statement;
+
+	TMap<FVector2D, FMS_ODBC_DataValue> Data_Pool;
+	int32 Count_Column = 0;
+	int32 Count_Row = 0;
 
 public:
 
-	virtual bool SetStatementHandle(FString& Out_Code, SQLHSTMT* In_Handle);
-	virtual bool RecordDataToPool(FString& Out_Code);
+	// ADVANCE
+
+	virtual bool SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_Handle, bool bRecordResults);
+
+	UFUNCTION(BlueprintCallable, meta = (ToolTip = ""))
+	virtual bool RecordResult(FString& Out_Code);
+
+	UFUNCTION(BlueprintCallable, meta = (ToolTip = ""))
+	virtual bool ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnNumber = 1);
+
+	// STANDARD
 
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetColumnNumber();
 
+	UFUNCTION(BlueprintPure)
+	virtual int32 GetRowNumber();
+
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetRow(FString& Out_Code, TArray<FString>& Out_Values, int32 RowIndex);
+	virtual bool GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex);
 
 };
