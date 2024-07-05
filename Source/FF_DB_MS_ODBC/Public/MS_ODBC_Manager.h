@@ -27,6 +27,8 @@ protected:
 	// Called when the game end or when destroyed.
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	TMap<FString, UMS_ODBC_Connection*> MAP_Connections;
+
 public:	
 	
 	// Sets default values for this actor's properties.
@@ -37,5 +39,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password);
+
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetConnectionFromId(UMS_ODBC_Connection*& Out_Connection, FString In_Id);
 
 };

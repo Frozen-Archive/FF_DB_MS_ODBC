@@ -14,10 +14,10 @@ class UMS_ODBC_BPLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NANODBC - INSERT INTO TEMPLATE", Keywords = "odbc, nanodbc, statement, template, query, insert, into"), Category = "Frozen Forest|Database|Microsoft")
-	static FString MS_Insert_Into(FString Target, TMap<FString, FString> KeyValue);
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "MS - INSERT INTO TEMPLATE", Keywords = "odbc, ms, microsoft, statement, template, query, insert, into"), Category = "Frozen Forest|Database|Microsoft")
+	static FString MS_Insert_Into(FString TargetDb, TMap<FString, FString> KeyValue);
 
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NANODBC - SELECT FROM TEMPLATE", Keywords = "odbc, nanodbc, statement, template, query, select, from"), Category = "Frozen Forest|Database|Microsoft")
-	static FString MS_Select_From(FString Target, FString Where, TSet<FString> PlaceHolders);
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "MS - SELECT FROM TEMPLATE", Keywords = "odbc, ms, microsoft, statement, template, query, select, from"), Category = "Frozen Forest|Database|Microsoft")
+	static FString MS_Select_From(FString TargetDb, FString Condition, TSet<FString> PlaceHolders);
 
 };

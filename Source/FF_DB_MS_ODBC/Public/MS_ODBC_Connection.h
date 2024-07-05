@@ -71,11 +71,13 @@ class FF_DB_MS_ODBC_API UMS_ODBC_Connection : public UObject
 
 protected:
 
+	FString ConnectionId;
 	SQLHENV SQL_Handle_Environment;
 	SQLHDBC SQL_Handle_Connection;
 
 public:
 
+	virtual bool SetConnectionId(FString In_Id);
 	virtual bool ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password);
 
 	UFUNCTION(BlueprintCallable)

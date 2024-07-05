@@ -8,6 +8,17 @@
 
 // CONNECTION
 
+bool UMS_ODBC_Connection::SetConnectionId(FString In_Id)
+{
+    if (!this->ConnectionId.IsEmpty())
+    {
+        return false;
+    }
+
+    this->ConnectionId = In_Id;
+    return true;
+}
+
 bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
 {
     if (TargetServer.IsEmpty())
@@ -22,7 +33,7 @@ bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedStr
         return false;
     }
 
-    SQLRETURN RetCode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &SQL_Handle_Environment);
+    SQLRETURN RetCode = SQLAllocEnv(&SQL_Handle_Environment);
     if (!SQL_SUCCEEDED(RetCode))
     {
         Out_Code = "FF Microsoft ODBC : Failed to allocate SQL environment";
@@ -37,7 +48,7 @@ bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedStr
         return false;
     }
 
-    RetCode = SQLAllocHandle(SQL_HANDLE_DBC, SQL_Handle_Environment, &this->SQL_Handle_Connection);
+    RetCode = SQLAllocConnect(SQL_Handle_Environment, &this->SQL_Handle_Connection);
     if (!SQL_SUCCEEDED(RetCode))
     {
         Out_Code = "FF Microsoft ODBC : Failed to allocate a connection handle.";
@@ -71,7 +82,7 @@ bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Res
     SQLRETURN RetCode;
 
     SQLHSTMT Temp_Handle;
-    RetCode = SQLAllocHandle(SQL_HANDLE_STMT, this->SQL_Handle_Connection, &Temp_Handle);
+    RetCode = SQLAllocStmt(this->SQL_Handle_Connection, &Temp_Handle);
 
     if (!SQL_SUCCEEDED(RetCode))
     {
@@ -207,14 +218,14 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     }  
                 }
 
-                SQLCHAR Value[SQL_MAX_TEXT_LENGHT];
-                SQLLEN indicator;
-                FString ColumnValue;
-                SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, Value, sizeof(Value), &indicator);
+                SQLLEN ReceivedLenght;
+                SQLCHAR* TempData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
+                SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
 
                 if (SQL_SUCCEEDED(RetCode))
                 {
-                    FString EachValueString = UTF8_TO_TCHAR((const char*)Value);
+                    FString EachValueString;
+                    EachValueString.AppendChars((const char*)TempData, ReceivedLenght);
                     EachValueString.TrimEndInline();
 
                     FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
@@ -225,6 +236,9 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     EachData.DataType = EachMetaData.DataType;
 
                     Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
+                    
+                    free(TempData);
+                    TempData = nullptr;
                 }
             }
 
@@ -265,19 +279,19 @@ bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values
 
     try
     {
-        int32 TempRowCount = 0;
         while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
         {
-            SQLCHAR Value[SQL_MAX_TEXT_LENGHT];
-            SQLLEN indicator;
-            FString ColumnValue;
-            SQLGetData(this->SQL_Handle_Statement, ColumnIndex, SQL_CHAR, Value, sizeof(Value), &indicator);
+            SQLLEN ReceivedLenght;
+            SQLCHAR* TempData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
+            SQLGetData(this->SQL_Handle_Statement, ColumnIndex, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
 
-            FString EachData = UTF8_TO_TCHAR((const char*)Value);
+            FString EachData;
+            EachData.AppendChars((const char*)TempData, ReceivedLenght);
             EachData.TrimEndInline();
             Array_Temp.Add(EachData);
 
-            TempRowCount += 1;
+            free(TempData);
+            TempData = nullptr;
         }
     }
 

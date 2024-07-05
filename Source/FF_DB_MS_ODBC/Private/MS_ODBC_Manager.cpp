@@ -28,16 +28,61 @@ void AMS_ODBC_Manager::Tick(float DeltaTime)
 
 bool AMS_ODBC_Manager::CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
 {
-	UMS_ODBC_Connection* ConnectionObject = NewObject<UMS_ODBC_Connection>();
-
-	if (ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password))
+	if (TargetServer.IsEmpty())
 	{
-		Out_Connection = ConnectionObject;
-		return true;
+		Out_Code = "FF Microsoft ODBC : Target server shouldn't be empty !";
+		return false;
 	}
 
-	else
+	if (Username.IsEmpty())
+	{
+		Out_Code = "FF Microsoft ODBC : Username shouldn't be empty !";
+		return false;
+	}
+
+	const FString ConnectionId = TargetServer + "&&" + Username;
+
+	UMS_ODBC_Connection* ConnectionObject = NewObject<UMS_ODBC_Connection>();
+
+	if (!ConnectionObject->SetConnectionId(ConnectionId))
 	{
 		return false;
 	}
+
+	if (!ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password))
+	{
+		return false;
+	}
+
+	this->MAP_Connections.Add(ConnectionId, ConnectionObject);
+	Out_Connection = ConnectionObject;
+	return true;
+}
+
+bool AMS_ODBC_Manager::GetConnectionFromId(UMS_ODBC_Connection*& Out_Connection, FString In_Id)
+{
+	if (In_Id.IsEmpty())
+	{
+		return false;
+	}
+
+	if (this->MAP_Connections.IsEmpty())
+	{
+		return false;
+	}
+
+	if (!this->MAP_Connections.Contains(In_Id))
+	{
+		return false;
+	}
+
+	UMS_ODBC_Connection* ConnectionObject = *this->MAP_Connections.Find(In_Id);
+
+	if (!ConnectionObject)
+	{
+		return false;
+	}
+
+	Out_Connection = ConnectionObject;
+	return false;
 }
