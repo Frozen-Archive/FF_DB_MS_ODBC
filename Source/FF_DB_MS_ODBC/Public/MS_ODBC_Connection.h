@@ -38,6 +38,32 @@ public:
 
 };
 
+USTRUCT(BlueprintType)
+struct FF_DB_MS_ODBC_API FMS_ODBC_MetaData
+{
+	GENERATED_BODY()
+
+public:
+
+	UPROPERTY(BlueprintReadOnly)
+	FString Column_Name;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 NameLenght = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 DataType = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 DecimalDigits = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsNullable = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 Column_Size = 0;
+};
+
 UCLASS(BlueprintType)
 class FF_DB_MS_ODBC_API UMS_ODBC_Connection : public UObject
 {
@@ -66,6 +92,8 @@ protected:
 	SQLHSTMT SQL_Handle_Statement;
 
 	TMap<FVector2D, FMS_ODBC_DataValue> Data_Pool;
+	bool bIsResultRecorded = false;
+
 	int32 Count_Column = 0;
 	int32 Count_Row = 0;
 
@@ -75,11 +103,16 @@ public:
 
 	virtual bool SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_Handle, bool bRecordResults);
 
-	UFUNCTION(BlueprintCallable, meta = (ToolTip = ""))
+	UFUNCTION(BlueprintCallable)
 	virtual bool RecordResult(FString& Out_Code);
 
-	UFUNCTION(BlueprintCallable, meta = (ToolTip = ""))
-	virtual bool ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnNumber = 1);
+	/*
+	* If you use "Record Result" system in anywhere for this result object, you can't use this function whitout executing query again.
+	* You can't use "Record Result" system after this function. Because it will exhaust query result handle. This is ODBC and SQL related limitation.
+	* You can use this function only once per query.
+	*/
+	UFUNCTION(BlueprintCallable)
+	virtual bool ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex = 1);
 
 	// STANDARD
 
@@ -91,5 +124,14 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex);
+
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetColumn(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex);
+
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell);
+
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetMetaData(FString& Out_Code, TArray<FMS_ODBC_MetaData>& Out_MetaData);
 
 };
