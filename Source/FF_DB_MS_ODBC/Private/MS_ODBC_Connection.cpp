@@ -97,63 +97,76 @@ bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Res
         return false;
     }
 
-    FString RetCode_SetStatement;
-    UMS_ODBC_Result* TempResultObject = NewObject<UMS_ODBC_Result>();
+    SQLLEN AffectedRows;
+    RetCode = SQLRowCount(Temp_Handle, &AffectedRows);
 
-    if (!TempResultObject->SetStatementHandle(RetCode_SetStatement, Temp_Handle, bRecordResults))
+    SQLSMALLINT ColumnNumber;
+    RetCode = SQLNumResultCols(Temp_Handle, &ColumnNumber);
+
+    UMS_ODBC_Result* ResultObject = NewObject<UMS_ODBC_Result>();
+
+    if (!ResultObject->SetStatementHandle(Temp_Handle, AffectedRows, ColumnNumber))
     {
-        Out_Code = "FF Microsoft ODBC : Query executed successfully but there was a problem to set query result ! : " + UKismetStringLibrary::ParseIntoArray(RetCode_SetStatement, " : ")[1];
+        Out_Code = "FF Microsoft ODBC : Query executed successfully but return handle is invalid !";
         return false;
     }
 
-    Out_Result = TempResultObject;
+    if (bRecordResults)
+    {
+        FString RecordResultCode;
+        if (!ResultObject->RecordResult(RecordResultCode))
+        {
+            Out_Code = "FF Microsoft ODBC : Query executed successfully but there was a problem while recording result to the pool : " + UKismetStringLibrary::ParseIntoArray(RecordResultCode, " : ")[1];
+            return false;
+        }  
+    }
+
+    Out_Result = ResultObject;
     Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";
     return true;
 }
 
 // RESULT - ADVANCE
 
-bool UMS_ODBC_Result::SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_Handle, bool bRecordResults)
+bool UMS_ODBC_Result::SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN AffectedRows, SQLSMALLINT ColumnNumber)
 {
     if (!In_Handle)
     {
-        Out_Code = "FF Microsoft ODBC : Statement handle is not valid !";
         return false;
     }
 
-    SQLRETURN RetCode;
+    this->SQL_Handle_Statement = In_Handle;
+    this->Affected_Rows = AffectedRows;
+    this->Count_Column = ColumnNumber;
 
-    SQLSMALLINT Temp_Count_Column = 0;
-    RetCode = SQLNumResultCols(In_Handle, &Temp_Count_Column);
+    return true;
+}
+
+bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex)
+{
+    SQLCHAR Column_Name[256];
+    SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
+    SQLULEN Column_Size;
+
+    SQLRETURN RetCode = SQLDescribeColA(this->SQL_Handle_Statement, ColumnIndex, Column_Name, 256, &NameLen, &DataType, &Column_Size, &DecimalDigits, &Nullable);
 
     if (!SQL_SUCCEEDED(RetCode))
     {
-        Out_Code = "FF Microsoft ODBC : There was a problem while counting columns !";
         return false;
     }
 
-    SQLLEN AffectedRows;
-    SQLRowCount(In_Handle, &AffectedRows);
-    
-    if (AffectedRows != -1)
-    {
-        this->Affected_Rows = AffectedRows;
-    }
+    FString Column_Name_String = UTF8_TO_TCHAR((const char*)Column_Name);
+    Column_Name_String.TrimEndInline();
 
-    this->Count_Column = Temp_Count_Column;
-    this->SQL_Handle_Statement = In_Handle;
+    FMS_ODBC_MetaData EachMetaData;
+    EachMetaData.Column_Name = Column_Name_String;
+    EachMetaData.NameLenght = NameLen;
+    EachMetaData.DataType = DataType;
+    EachMetaData.DecimalDigits = DecimalDigits;
+    EachMetaData.bIsNullable = Nullable == 1 ? true : false;
+    EachMetaData.Column_Size = Column_Size;
 
-    if (bRecordResults)
-    {
-        FString RecordCode;
-        if (!this->RecordResult(RecordCode))
-        {
-            Out_Code = "FF Microsoft ODBC : Result record problem : " + UKismetStringLibrary::ParseIntoArray(RecordCode, " : ")[1];
-            return false;
-        }
-    }
-
-    Out_Code = "FF Microsoft ODBC : Statement set successfully !";
+    Out_MetaData = EachMetaData;
     return true;
 }
 
@@ -171,24 +184,28 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
         return false;
     }
 
-    FString MetaDataCode;
-    TArray<FMS_ODBC_MetaData> Array_MetaData;
-    if (!this->GetMetaData(MetaDataCode, Array_MetaData))
-    {
-        Out_Code = MetaDataCode;
-        return false;
-    }
-
     TMap<FVector2D, FMS_ODBC_DataValue> Temp_Data_Pool;
     int32 Index_Row = 0;
 
     try
     {
+        bool bIsMetaDataCollected = false;
+        TArray<FMS_ODBC_MetaData> Array_MetaData;
+
         while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
         {
             for (int32 Index_Column_Raw = 0; Index_Column_Raw < this->Count_Column; Index_Column_Raw++)
             {
                 const int32 Index_Column = Index_Column_Raw + 1;
+
+                if (!bIsMetaDataCollected)
+                {
+                    FMS_ODBC_MetaData EachMetaData;
+                    if (this->GetEachMetaData(EachMetaData, Index_Column))
+                    {
+                        Array_MetaData.Add(EachMetaData);
+                    }  
+                }
 
                 SQLCHAR Value[SQL_MAX_TEXT_LENGHT];
                 SQLLEN indicator;
@@ -211,6 +228,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                 }
             }
 
+            bIsMetaDataCollected = true;
             Index_Row += 1;
         }
     }
@@ -295,13 +313,13 @@ bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_
 {
     if (this->Data_Pool.IsEmpty())
     {
-        Out_Code = "Data pool is empty !";
+        Out_Code = "FF Microsoft ODBC : Data pool is empty !";
         return false;
     }
 
     if (RowIndex < 0 && this->Count_Row >= RowIndex)
     {
-        Out_Code = "Given row index is out of data pool's range !";
+        Out_Code = "FF Microsoft ODBC : Given row index is out of data pool's range !";
         return false;
     }
 
@@ -320,13 +338,13 @@ bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_Data
 {
     if (this->Data_Pool.IsEmpty())
     {
-        Out_Code = "Data pool is empty !";
+        Out_Code = "FF Microsoft ODBC : Data pool is empty !";
         return false;
     }
 
     if (ColumnIndex < 0 && this->Count_Column >= ColumnIndex)
     {
-        Out_Code = "Given column index is out of data pool's range !";
+        Out_Code = "FF Microsoft ODBC : Given column index is out of data pool's range !";
         return false;
     }
 
@@ -341,32 +359,59 @@ bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_Data
     return true;
 }
 
-bool UMS_ODBC_Result::GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumnIndex)
+bool UMS_ODBC_Result::GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumName)
 {
-    FString MetaDataCode;
-    TArray<FMS_ODBC_MetaData> Array_MetaData;
-    this->GetMetaData(MetaDataCode, Array_MetaData);
+    if (this->Count_Column == 0)
+    {
+        return false;
+    }
 
+    int32 TargetIndex = 0;
+    for (int32 Index_Column_Raw = 0; Index_Column_Raw < this->Count_Column; Index_Column_Raw++)
+    {
+        const int32 Index_Column = Index_Column_Raw + 1;
+        SQLCHAR Column_Name[256];
+        SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
+        SQLULEN Column_Size;
 
+        SQLRETURN RetCode = SQLDescribeColA(this->SQL_Handle_Statement, Index_Column, Column_Name, 256, &NameLen, &DataType, &Column_Size, &DecimalDigits, &Nullable);
 
-    return false;
+        if (!SQL_SUCCEEDED(RetCode))
+        {
+            Out_Code = "FF Microsoft ODBC : There was a problem while getting index of target column !";
+            return false;
+        }
+
+        FString EachName = UTF8_TO_TCHAR((const char*)Column_Name);
+        EachName.TrimEndInline();
+        
+        if (EachName == ColumName)
+        {
+            TargetIndex = Index_Column_Raw;
+            break;
+        }
+    }
+
+    return this->GetColumnFromIndex(Out_Code, Out_Values, TargetIndex);
 }
 
 bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell)
 {
     if (this->Data_Pool.IsEmpty())
     {
-        Out_Code = "Data pool is empty !";
+        Out_Code = "FF Microsoft ODBC : Data pool is empty !";
         return false;
     }
 
     if (TargetCell.X < 0 || TargetCell.Y < 0)
     {
+        Out_Code = "FF Microsoft ODBC : Target position shouldn't be negative !";
         return false;
     }
 
     if (TargetCell.X >= this->Count_Row || TargetCell.Y >= this->Count_Column)
     {
+        Out_Code = "FF Microsoft ODBC : Given position is out of data pool's range !";
         return false;
     }
 
@@ -374,6 +419,7 @@ bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_V
 
     if (!DataValue)
     {
+        Out_Code = "FF Microsoft ODBC : Data couldn't be found !";
         return false;
     }
 
@@ -392,36 +438,21 @@ bool UMS_ODBC_Result::GetMetaData(FString& Out_Code, TArray<FMS_ODBC_MetaData>& 
     SQLSMALLINT Temp_Count_Column = 0;
     SQLRETURN RetCode = SQLNumResultCols(this->SQL_Handle_Statement, &Temp_Count_Column);
 
+    if (Temp_Count_Column == 0)
+    {
+        Out_Code = "FF Microsoft ODBC : There is no column to get metadata !";
+        return false;
+    }
+
     TArray<FMS_ODBC_MetaData> Array_MetaData;
 
     for (int32 Index_Column_Raw = 0; Index_Column_Raw < Temp_Count_Column; Index_Column_Raw++)
     {
-        const int32 Index_Column = Index_Column_Raw + 1;
-
-        SQLCHAR Column_Name[256];
-        SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
-        SQLULEN Column_Size;
-
-        RetCode = SQLDescribeColA(this->SQL_Handle_Statement, Index_Column, Column_Name, 256, &NameLen, &DataType, &Column_Size, &DecimalDigits, &Nullable);
-
-        if (RetCode != SQL_SUCCESS)
-        {
-            Out_Code = "FF Microsoft ODBC : There was a problem while getting column metada. Index = " + FString::FromInt(Index_Column);
-            return false;
-        }
-
-        FString Column_Name_String = UTF8_TO_TCHAR((const char*)Column_Name);
-        Column_Name_String.TrimEndInline();
-
         FMS_ODBC_MetaData EachMetaData;
-        EachMetaData.Column_Name = Column_Name_String;
-        EachMetaData.NameLenght = NameLen;
-        EachMetaData.DataType = DataType;
-        EachMetaData.DecimalDigits = DecimalDigits;
-        EachMetaData.bIsNullable = Nullable == 1 ? true : false;
-        EachMetaData.Column_Size = Column_Size;
-
-        Array_MetaData.Add(EachMetaData);
+        if (this->GetEachMetaData(EachMetaData, Index_Column_Raw + 1))
+        {
+            Array_MetaData.Add(EachMetaData);
+        }
     }
 
     Out_MetaData = Array_MetaData;

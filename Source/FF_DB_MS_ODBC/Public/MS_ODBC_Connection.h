@@ -102,7 +102,8 @@ public:
 
 	// ADVANCE
 
-	virtual bool SetStatementHandle(FString& Out_Code, const SQLHSTMT& In_Handle, bool bRecordResults);
+	virtual bool GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex);
+	virtual bool SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN AffectedRows, SQLSMALLINT ColumnNumber);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool RecordResult(FString& Out_Code);
@@ -136,7 +137,7 @@ public:
 	virtual bool GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumnIndex);
+	virtual bool GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumName);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell);
