@@ -155,6 +155,16 @@ bool UMS_ODBC_Result::SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN Affec
 
 bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex)
 {
+    if (!this->SQL_Handle_Statement)
+    {
+        return false;
+    }
+    
+    if (this->Count_Column == 0)
+    {
+        return false;
+    }
+
     SQLCHAR Column_Name[256];
     SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
     SQLULEN Column_Size;
@@ -192,6 +202,12 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
     if (!this->SQL_Handle_Statement)
     {
         Out_Code = "FF Microsoft ODBC : Statement handle is not valid !";
+        return false;
+    }
+
+    if (this->Count_Column == 0)
+    {
+        Out_Code = "FF Microsoft ODBC : This query doesn't have result. It is for update only !";
         return false;
     }
 
