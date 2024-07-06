@@ -1,9 +1,5 @@
 #include "MS_ODBC_Connection.h"
 
-// UE Includes.
-#include "Kismet/KismetMathLibrary.h"
-#include "Kismet/KismetStringLibrary.h"
-
 #define SQL_MAX_TEXT_LENGHT 65535
 
 // CONNECTION
@@ -270,8 +266,11 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                         // TIMESTAMP
                         case -2:
                         {
+                            std::string RawString = TCHAR_TO_UTF8(*PreviewString);
+                            unsigned int TimeStampInt = std::stoul(RawString, nullptr, 16);
                             
-
+                            EachData.Integer64 = TimeStampInt;
+                            EachData.Preview += " - " + FString::FromInt(TimeStampInt);
                             break;
                         }
 

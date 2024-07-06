@@ -7,4 +7,9 @@ THIRD_PARTY_INCLUDES_START
 #include <sqlext.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 
+#include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetStringLibrary.h"
+
+#include <string>
+
 THIRD_PARTY_INCLUDES_END
