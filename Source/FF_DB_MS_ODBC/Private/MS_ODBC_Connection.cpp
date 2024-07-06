@@ -220,8 +220,10 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
 
                 SQLLEN ReceivedLenght;
                 SQLCHAR* TempData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
-                SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
-
+                SQLRETURN RetCode = SQL_ERROR;
+                
+                RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
+             
                 if (SQL_SUCCEEDED(RetCode))
                 {
                     FString EachValueString;
@@ -231,7 +233,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
 
                     FMS_ODBC_DataValue EachData;
-                    EachData.ValueRepresentation = EachValueString;
+                    EachData.Preview = EachValueString;
                     EachData.ColumnName = EachMetaData.Column_Name;
                     EachData.DataType = EachMetaData.DataType;
 
