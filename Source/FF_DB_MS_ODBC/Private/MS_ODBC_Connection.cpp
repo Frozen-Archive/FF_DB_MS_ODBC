@@ -217,31 +217,111 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                         Array_MetaData.Add(EachMetaData);
                     }  
                 }
-
-                SQLLEN ReceivedLenght;
-                SQLCHAR* TempData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
-                SQLRETURN RetCode = SQL_ERROR;
                 
-                RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
+                SQLLEN PreviewLenght;
+                SQLCHAR* PreviewData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
+                SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, PreviewData, SQL_MAX_TEXT_LENGHT, &PreviewLenght);
              
                 if (SQL_SUCCEEDED(RetCode))
                 {
-                    FString EachValueString;
-                    EachValueString.AppendChars((const char*)TempData, ReceivedLenght);
-                    EachValueString.TrimEndInline();
-
+                    FString PreviewString;
+                    PreviewString.AppendChars((const char*)PreviewData, PreviewLenght);
+                    PreviewString.TrimEndInline();
+                    
                     FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
 
                     FMS_ODBC_DataValue EachData;
-                    EachData.Preview = EachValueString;
                     EachData.ColumnName = EachMetaData.Column_Name;
                     EachData.DataType = EachMetaData.DataType;
+                    EachData.Preview = PreviewString;
 
-                    Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
+                    switch (EachMetaData.DataType)
+                    {
+                        // NVARCHAR & DATE & TIME
+                        case -9:
+                        {
+                            EachData.String = PreviewString;
+                            break;
+                        }
+
+                        // INT64 & BIGINT
+                        case -5:
+                        {
+                            EachData.Integer64 = FCString::Atoi64(*PreviewString);
+                            break;
+                        }
+
+                        // TIMESTAMP
+                        case -2:
+                        {
+                            
+
+                            break;
+                        }
+
+                        // TEXT
+                        case -1:
+                        {
+                            EachData.String = PreviewString;
+                            break;
+                        }
+
+                        // INT32
+                        case 4:
+                        {
+                            EachData.Integer64 = FCString::Atoi(*PreviewString);
+                            break;
+                        }
+
+                        // FLOAT & DOUBLE
+                        case 6:
+                        {
+                            EachData.Double = FCString::Atod(*PreviewString);
+                            break;
+                        }
+
+                        // DATETIME
+                        case 93:
+                        {
+                            TArray<FString> Array_Sections;
+                            PreviewString.ParseIntoArray(Array_Sections, TEXT(" "));
+                            
+                            FString Date = Array_Sections[0];
+                            FString Time = Array_Sections[1];
+
+                            TArray<FString> Array_Sections_Date;
+                            Date.ParseIntoArray(Array_Sections_Date, TEXT("-"));
+                            int32 Year = FCString::Atoi(*Array_Sections_Date[0]);
+                            int32 Month = FCString::Atoi(*Array_Sections_Date[1]);
+                            int32 Day = FCString::Atoi(*Array_Sections_Date[2]);
+                            
+                            TArray<FString> Array_Sections_Time;
+                            Time.ParseIntoArray(Array_Sections_Time, TEXT("."));
+                            int32 Milliseconds = FCString::Atoi(*Array_Sections_Time[1]);
+                            FString Clock = Array_Sections_Time[0];
+
+                            TArray<FString> Array_Sections_Clock;
+                            Clock.ParseIntoArray(Array_Sections_Clock, TEXT(":"));
+                            int32 Hours = FCString::Atoi(*Array_Sections_Clock[0]);
+                            int32 Minutes = FCString::Atoi(*Array_Sections_Clock[1]);
+                            int32 Seconds = FCString::Atoi(*Array_Sections_Clock[2]);
+
+                            EachData.DateTime = FDateTime(Year, Month, Day, Hours, Minutes, Seconds, Milliseconds);
+                            break;
+                        }
+
+                        default:
+                        {
+                            EachData.Note = "Currently there is no parser for this data type. Please convert it to another known type in your query !";
+                            break;
+                        }
+                    }
                     
-                    free(TempData);
-                    TempData = nullptr;
+                    Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
                 }
+
+                free(PreviewData);
+                PreviewData = nullptr;
             }
 
             bIsMetaDataCollected = true;

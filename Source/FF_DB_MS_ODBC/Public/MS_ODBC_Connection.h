@@ -36,17 +36,20 @@ public:
 	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
 	FDateTime DateTime;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
 	int32 DataType = 0;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
 	FString DataTypeName;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
 	FString ColumnName;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
 	FString Preview;
+
+	UPROPERTY(BlueprintReadOnly, meta = (ToolTip = ""))
+	FString Note;
 
 };
 
