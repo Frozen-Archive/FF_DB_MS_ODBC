@@ -9,8 +9,8 @@
 #include "Containers/Queue.h"
 
 // Custom Includes.
-#include "MS_ODBC_Thread.h"
-#include "MS_ODBC_Connection.h"
+#include "Objects/MS_ODBC_Thread.h"
+#include "Objects/MS_ODBC_Connection.h"
 
 #include "MS_ODBC_Manager.generated.h"
 

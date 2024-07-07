@@ -3,9 +3,6 @@
 #include "MS_ODBC_BPLibrary.h"
 #include "FF_DB_MS_ODBC.h"
 
-// UE Includes.
-#include "Kismet/KismetStringLibrary.h"
-
 UMS_ODBC_BPLibrary::UMS_ODBC_BPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {

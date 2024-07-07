@@ -1,139 +1,6 @@
-#include "MS_ODBC_Connection.h"
+#include "Objects/MS_ODBC_Result.h"
 
 #define SQL_MAX_TEXT_LENGHT 65535
-
-// CONNECTION
-
-bool UMS_ODBC_Connection::SetConnectionId(FString In_Id)
-{
-    if (!this->ConnectionId.IsEmpty())
-    {
-        return false;
-    }
-
-    this->ConnectionId = In_Id;
-    return true;
-}
-
-bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
-{
-    if (TargetServer.IsEmpty())
-    {
-        Out_Code = "FF Microsoft ODBC : Target server shouldn't be empty !";
-        return false;
-    }
-
-    if (Username.IsEmpty())
-    {
-        Out_Code = "FF Microsoft ODBC : Username shouldn't be empty !";
-        return false;
-    }
-
-    SQLRETURN RetCode = SQLAllocEnv(&SQL_Handle_Environment);
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : Failed to allocate SQL environment";
-        return false;
-    }
-
-    RetCode = SQLSetEnvAttr(SQL_Handle_Environment, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : Failed to set the ODBC version.";
-        SQLFreeHandle(SQL_HANDLE_ENV, SQL_Handle_Environment);
-        return false;
-    }
-
-    RetCode = SQLAllocConnect(SQL_Handle_Environment, &this->SQL_Handle_Connection);
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : Failed to allocate a connection handle.";
-        SQLFreeHandle(SQL_HANDLE_ENV, SQL_Handle_Environment);
-        return false;
-    }
-
-    CreatedString = "{SQL Server};SERVER=" + TargetServer + "\\SQLEXPRESS;DSN=" + TargetServer + ";UID=" + Username + ";PWD=" + Password;
-    RetCode = SQLDriverConnectA(this->SQL_Handle_Connection, NULL, (SQLCHAR*)TCHAR_TO_UTF8(*CreatedString), SQL_NTS, NULL, 0, NULL, SQL_DRIVER_COMPLETE);
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        SQLFreeHandle(SQL_HANDLE_DBC, this->SQL_Handle_Connection);
-        SQLFreeHandle(SQL_HANDLE_ENV, this->SQL_Handle_Environment);
-
-        Out_Code = "FF Microsoft ODBC : Connection couldn't made !";
-        return false;
-    }
-
-    Out_Code = "FF Microsoft ODBC : Connection successfully established !";
-    return true;
-}
-
-bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults)
-{
-    if (!this->SQL_Handle_Connection)
-    {
-        Out_Code = "FF Microsoft ODBC : Connection handle is not valid !";
-        return false;
-    }
-
-    SQLRETURN RetCode;
-
-    SQLHSTMT Temp_Handle;
-    RetCode = SQLAllocStmt(this->SQL_Handle_Connection, &Temp_Handle);
-
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : There was a problem while allocating statement handle : " + FString::FromInt(RetCode);
-        return false;
-    }
-
-    const TCHAR* statementStringChar = *SQL_Query;
-    SQLWCHAR* SQLWCHARStatementString = (SQLWCHAR*)statementStringChar;
-    RetCode = SQLPrepare(Temp_Handle, SQLWCHARStatementString, SQL_NTS);
-
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : There was a problem while preparing statement : " + FString::FromInt(RetCode);
-        return false;
-    }
-
-    RetCode = SQLExecute(Temp_Handle);
-
-    if (!SQL_SUCCEEDED(RetCode))
-    {
-        Out_Code = "FF Microsoft ODBC : There was a problem while executing query : " + FString::FromInt(RetCode);
-        return false;
-    }
-
-    SQLLEN AffectedRows;
-    RetCode = SQLRowCount(Temp_Handle, &AffectedRows);
-
-    SQLSMALLINT ColumnNumber;
-    RetCode = SQLNumResultCols(Temp_Handle, &ColumnNumber);
-
-    UMS_ODBC_Result* ResultObject = NewObject<UMS_ODBC_Result>();
-
-    if (!ResultObject->SetStatementHandle(Temp_Handle, AffectedRows, ColumnNumber))
-    {
-        Out_Code = "FF Microsoft ODBC : Query executed successfully but return handle is invalid !";
-        return false;
-    }
-
-    if (bRecordResults)
-    {
-        FString RecordResultCode;
-        if (!ResultObject->RecordResult(RecordResultCode))
-        {
-            Out_Code = "FF Microsoft ODBC : Query executed successfully but there was a problem while recording result to the pool : " + UKismetStringLibrary::ParseIntoArray(RecordResultCode, " : ")[1];
-            return false;
-        }  
-    }
-
-    Out_Result = ResultObject;
-    Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";
-    return true;
-}
-
-// RESULT - ADVANCE
 
 bool UMS_ODBC_Result::SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN AffectedRows, SQLSMALLINT ColumnNumber)
 {
@@ -155,7 +22,7 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     {
         return false;
     }
-    
+
     if (this->Count_Column == 0)
     {
         return false;
@@ -227,19 +94,19 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     if (this->GetEachMetaData(EachMetaData, Index_Column))
                     {
                         Array_MetaData.Add(EachMetaData);
-                    }  
+                    }
                 }
-                
+
                 SQLLEN PreviewLenght;
                 SQLCHAR* PreviewData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
                 SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, PreviewData, SQL_MAX_TEXT_LENGHT, &PreviewLenght);
-             
+
                 if (SQL_SUCCEEDED(RetCode))
                 {
                     FString PreviewString;
                     PreviewString.AppendChars((const char*)PreviewData, PreviewLenght);
                     PreviewString.TrimEndInline();
-                    
+
                     FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
 
                     FMS_ODBC_DataValue EachData;
@@ -250,88 +117,88 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                     switch (EachMetaData.DataType)
                     {
                         // NVARCHAR & DATE & TIME
-                        case -9:
-                        {
-                            EachData.String = PreviewString;
-                            break;
-                        }
-
-                        // INT64 & BIGINT
-                        case -5:
-                        {
-                            EachData.Integer64 = FCString::Atoi64(*PreviewString);
-                            break;
-                        }
-
-                        // TIMESTAMP
-                        case -2:
-                        {
-                            std::string RawString = TCHAR_TO_UTF8(*PreviewString);
-                            unsigned int TimeStampInt = std::stoul(RawString, nullptr, 16);
-                            
-                            EachData.Integer64 = TimeStampInt;
-                            EachData.Preview += " - " + FString::FromInt(TimeStampInt);
-                            break;
-                        }
-
-                        // TEXT
-                        case -1:
-                        {
-                            EachData.String = PreviewString;
-                            break;
-                        }
-
-                        // INT32
-                        case 4:
-                        {
-                            EachData.Integer64 = FCString::Atoi(*PreviewString);
-                            break;
-                        }
-
-                        // FLOAT & DOUBLE
-                        case 6:
-                        {
-                            EachData.Double = FCString::Atod(*PreviewString);
-                            break;
-                        }
-
-                        // DATETIME
-                        case 93:
-                        {
-                            TArray<FString> Array_Sections;
-                            PreviewString.ParseIntoArray(Array_Sections, TEXT(" "));
-                            
-                            FString Date = Array_Sections[0];
-                            FString Time = Array_Sections[1];
-
-                            TArray<FString> Array_Sections_Date;
-                            Date.ParseIntoArray(Array_Sections_Date, TEXT("-"));
-                            int32 Year = FCString::Atoi(*Array_Sections_Date[0]);
-                            int32 Month = FCString::Atoi(*Array_Sections_Date[1]);
-                            int32 Day = FCString::Atoi(*Array_Sections_Date[2]);
-                            
-                            TArray<FString> Array_Sections_Time;
-                            Time.ParseIntoArray(Array_Sections_Time, TEXT("."));
-                            int32 Milliseconds = FCString::Atoi(*Array_Sections_Time[1]);
-                            FString Clock = Array_Sections_Time[0];
-
-                            TArray<FString> Array_Sections_Clock;
-                            Clock.ParseIntoArray(Array_Sections_Clock, TEXT(":"));
-                            int32 Hours = FCString::Atoi(*Array_Sections_Clock[0]);
-                            int32 Minutes = FCString::Atoi(*Array_Sections_Clock[1]);
-                            int32 Seconds = FCString::Atoi(*Array_Sections_Clock[2]);
-
-                            EachData.DateTime = FDateTime(Year, Month, Day, Hours, Minutes, Seconds, Milliseconds);
-                            break;
-                        }
-
-                        default:
-                        {
-                            EachData.Note = "Currently there is no parser for this data type. Please convert it to another known type in your query !";
-                            break;
-                        }
+                    case -9:
+                    {
+                        EachData.String = PreviewString;
+                        break;
                     }
-                    
+
+                    // INT64 & BIGINT
+                    case -5:
+                    {
+                        EachData.Integer64 = FCString::Atoi64(*PreviewString);
+                        break;
+                    }
+
+                    // TIMESTAMP
+                    case -2:
+                    {
+                        std::string RawString = TCHAR_TO_UTF8(*PreviewString);
+                        unsigned int TimeStampInt = std::stoul(RawString, nullptr, 16);
+
+                        EachData.Integer64 = TimeStampInt;
+                        EachData.Preview += " - " + FString::FromInt(TimeStampInt);
+                        break;
+                    }
+
+                    // TEXT
+                    case -1:
+                    {
+                        EachData.String = PreviewString;
+                        break;
+                    }
+
+                    // INT32
+                    case 4:
+                    {
+                        EachData.Integer64 = FCString::Atoi(*PreviewString);
+                        break;
+                    }
+
+                    // FLOAT & DOUBLE
+                    case 6:
+                    {
+                        EachData.Double = FCString::Atod(*PreviewString);
+                        break;
+                    }
+
+                    // DATETIME
+                    case 93:
+                    {
+                        TArray<FString> Array_Sections;
+                        PreviewString.ParseIntoArray(Array_Sections, TEXT(" "));
+
+                        FString Date = Array_Sections[0];
+                        FString Time = Array_Sections[1];
+
+                        TArray<FString> Array_Sections_Date;
+                        Date.ParseIntoArray(Array_Sections_Date, TEXT("-"));
+                        int32 Year = FCString::Atoi(*Array_Sections_Date[0]);
+                        int32 Month = FCString::Atoi(*Array_Sections_Date[1]);
+                        int32 Day = FCString::Atoi(*Array_Sections_Date[2]);
+
+                        TArray<FString> Array_Sections_Time;
+                        Time.ParseIntoArray(Array_Sections_Time, TEXT("."));
+                        int32 Milliseconds = FCString::Atoi(*Array_Sections_Time[1]);
+                        FString Clock = Array_Sections_Time[0];
+
+                        TArray<FString> Array_Sections_Clock;
+                        Clock.ParseIntoArray(Array_Sections_Clock, TEXT(":"));
+                        int32 Hours = FCString::Atoi(*Array_Sections_Clock[0]);
+                        int32 Minutes = FCString::Atoi(*Array_Sections_Clock[1]);
+                        int32 Seconds = FCString::Atoi(*Array_Sections_Clock[2]);
+
+                        EachData.DateTime = FDateTime(Year, Month, Day, Hours, Minutes, Seconds, Milliseconds);
+                        break;
+                    }
+
+                    default:
+                    {
+                        EachData.Note = "Currently there is no parser for this data type. Please convert it to another known type in your query !";
+                        break;
+                    }
+                    }
+
                     Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
                 }
 
@@ -353,7 +220,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
     this->Data_Pool = Temp_Data_Pool;
     this->Count_Row = Index_Row;
     this->bIsResultRecorded = true;
-   
+
     Out_Code = "FF Microsoft ODBC : Result successfuly recorded !";
     return true;
 }
@@ -495,7 +362,7 @@ bool UMS_ODBC_Result::GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataV
 
         FString EachName = UTF8_TO_TCHAR((const char*)Column_Name);
         EachName.TrimEndInline();
-        
+
         if (EachName == ColumName)
         {
             TargetIndex = Index_Column_Raw;
