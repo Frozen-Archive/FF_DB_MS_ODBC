@@ -11,9 +11,9 @@ bool UMS_ODBC_Connection::SetConnectionId(FString In_Id)
     return true;
 }
 
-bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
+bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedString, FString ODBC_Name, FString Username, FString Password, FString ServerInstance)
 {
-    if (TargetServer.IsEmpty())
+    if (ODBC_Name.IsEmpty())
     {
         Out_Code = "FF Microsoft ODBC : Target server shouldn't be empty !";
         return false;
@@ -22,6 +22,12 @@ bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedStr
     if (Username.IsEmpty())
     {
         Out_Code = "FF Microsoft ODBC : Username shouldn't be empty !";
+        return false;
+    }
+
+    if (ServerInstance.IsEmpty())
+    {
+        Out_Code = "FF Microsoft ODBC : Server instance shouldn't be empty !";
         return false;
     }
 
@@ -48,7 +54,7 @@ bool UMS_ODBC_Connection::ConnectDatabase(FString& Out_Code, FString& CreatedStr
         return false;
     }
 
-    CreatedString = "{SQL Server};SERVER=" + TargetServer + "\\SQLEXPRESS;DSN=" + TargetServer + ";UID=" + Username + ";PWD=" + Password;
+    CreatedString = "{SQL Server};SERVER=" + ODBC_Name + "\\" + ServerInstance + ";DSN=" + ODBC_Name + ";UID=" + Username + ";PWD=" + Password;
     RetCode = SQLDriverConnectA(this->SQL_Handle_Connection, NULL, (SQLCHAR*)TCHAR_TO_UTF8(*CreatedString), SQL_NTS, NULL, 0, NULL, SQL_DRIVER_COMPLETE);
     if (!SQL_SUCCEEDED(RetCode))
     {

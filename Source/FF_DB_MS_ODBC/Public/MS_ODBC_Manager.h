@@ -38,7 +38,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password);
+	virtual bool CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password, FString ServerInstance = "SQLEXPRESS");
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetConnectionFromId(UMS_ODBC_Connection*& Out_Connection, FString In_Id);

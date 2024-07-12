@@ -26,7 +26,7 @@ void AMS_ODBC_Manager::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool AMS_ODBC_Manager::CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password)
+bool AMS_ODBC_Manager::CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password, FString ServerInstance)
 {
 	if (TargetServer.IsEmpty())
 	{
@@ -49,7 +49,7 @@ bool AMS_ODBC_Manager::CreateConnection(UMS_ODBC_Connection*& Out_Connection, FS
 		return false;
 	}
 
-	if (!ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password))
+	if (!ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password, ServerInstance))
 	{
 		return false;
 	}

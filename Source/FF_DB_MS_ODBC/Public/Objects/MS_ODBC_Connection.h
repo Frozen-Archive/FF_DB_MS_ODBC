@@ -22,7 +22,7 @@ protected:
 public:
 
 	virtual bool SetConnectionId(FString In_Id);
-	virtual bool ConnectDatabase(FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password);
+	virtual bool ConnectDatabase(FString& Out_Code, FString& CreatedString, FString ODBC_Name, FString Username, FString Password, FString ServerInstance = "SQLEXPRESS");
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults);
