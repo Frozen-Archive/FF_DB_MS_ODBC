@@ -106,15 +106,9 @@ bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Res
         return false;
     }
 
-    SQLLEN AffectedRows;
-    RetCode = SQLRowCount(Temp_Handle, &AffectedRows);
-
-    SQLSMALLINT ColumnNumber;
-    RetCode = SQLNumResultCols(Temp_Handle, &ColumnNumber);
-
     UMS_ODBC_Result* ResultObject = NewObject<UMS_ODBC_Result>();
 
-    if (!ResultObject->SetStatementHandle(Temp_Handle, AffectedRows, ColumnNumber))
+    if (!ResultObject->SetQueryResult(Temp_Handle))
     {
         Out_Code = "FF Microsoft ODBC : Query executed successfully but return handle is invalid !";
         return false;
@@ -123,12 +117,12 @@ bool UMS_ODBC_Connection::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Res
     if (bRecordResults)
     {
         FString RecordResultCode;
-        if (!ResultObject->RecordResult(RecordResultCode))
+        if (!ResultObject->Result_Record(RecordResultCode))
         {
             Out_Code = "FF Microsoft ODBC : Query executed successfully but there was a problem while recording result to the pool : " + UKismetStringLibrary::ParseIntoArray(RecordResultCode, " : ")[1];
             return false;
         }  
-    }
+    }  
 
     Out_Result = ResultObject;
     Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";

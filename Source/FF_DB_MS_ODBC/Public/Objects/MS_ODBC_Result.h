@@ -87,8 +87,8 @@ protected:
 	TMap<FVector2D, FMS_ODBC_DataValue> Data_Pool;
 	bool bIsResultRecorded = false;
 
-	int32 Count_Column = 0;
 	int32 Count_Row = 0;
+	int32 Count_Column = 0;
 	int32 Affected_Rows = 0;
 
 public:
@@ -96,10 +96,10 @@ public:
 	// ADVANCE
 
 	virtual bool GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex);
-	virtual bool SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN AffectedRows, SQLSMALLINT ColumnNumber);
+	virtual bool SetQueryResult(const SQLHSTMT& In_Handle);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool RecordResult(FString& Out_Code);
+	virtual bool Result_Record(FString& Out_Code);
 
 	/*
 	* If you use "Record Result" system in anywhere for this result object, you can't use this function whitout executing query again.
@@ -107,7 +107,7 @@ public:
 	* You can use this function only once per query.
 	*/
 	UFUNCTION(BlueprintCallable)
-	virtual bool ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex = 1);
+	virtual bool Result_Fetch(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex = 1);
 
 	// STANDARD
 
@@ -124,16 +124,16 @@ public:
 	virtual int32 GetAffectedRows();
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex);
+	virtual bool GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 Index_Row);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex);
+	virtual bool GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 Index_Column);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, FString ColumName);
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell);
+	virtual bool GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D Position);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool GetMetaData(FString& Out_Code, TArray<FMS_ODBC_MetaData>& Out_MetaData);

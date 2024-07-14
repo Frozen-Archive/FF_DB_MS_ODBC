@@ -2,16 +2,22 @@
 
 #define SQL_MAX_TEXT_LENGHT 65535
 
-bool UMS_ODBC_Result::SetStatementHandle(const SQLHSTMT& In_Handle, SQLLEN AffectedRows, SQLSMALLINT ColumnNumber)
+bool UMS_ODBC_Result::SetQueryResult(const SQLHSTMT& In_Handle)
 {
     if (!In_Handle)
     {
         return false;
     }
 
-    this->SQL_Handle_Statement = In_Handle;
+    SQLLEN AffectedRows;
+    SQLRowCount(In_Handle, &AffectedRows);
+
+    SQLSMALLINT ColumnNumber;
+    SQLNumResultCols(In_Handle, &ColumnNumber);
+
     this->Affected_Rows = AffectedRows;
     this->Count_Column = ColumnNumber;
+    this->SQL_Handle_Statement = In_Handle;
 
     return true;
 }
@@ -54,7 +60,7 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     return true;
 }
 
-bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
+bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
 {
     if (this->bIsResultRecorded)
     {
@@ -86,6 +92,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
         {
             for (int32 Index_Column_Raw = 0; Index_Column_Raw < this->Count_Column; Index_Column_Raw++)
             {
+                const FVector2D Position = FVector2D(Index_Column_Raw, Index_Row);
                 const int32 Index_Column = Index_Column_Raw + 1;
 
                 if (!bIsMetaDataCollected)
@@ -101,22 +108,29 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                 SQLCHAR* PreviewData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
                 SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, PreviewData, SQL_MAX_TEXT_LENGHT, &PreviewLenght);
 
-                if (SQL_SUCCEEDED(RetCode))
+                if (!SQL_SUCCEEDED(RetCode))
                 {
-                    FString PreviewString;
-                    PreviewString.AppendChars((const char*)PreviewData, PreviewLenght);
-                    PreviewString.TrimEndInline();
+                    free(PreviewData);
+                    PreviewData = nullptr;
 
-                    FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
+                    Out_Code = "FF Microsoft ODBC : There was a problem while getting SQL Data : " + Position.ToString();
+                    return false;
+                }
 
-                    FMS_ODBC_DataValue EachData;
-                    EachData.ColumnName = EachMetaData.Column_Name;
-                    EachData.DataType = EachMetaData.DataType;
-                    EachData.Preview = PreviewString;
+                FString PreviewString;
+                PreviewString.AppendChars((const char*)PreviewData, PreviewLenght);
+                PreviewString.TrimEndInline();
 
-                    switch (EachMetaData.DataType)
-                    {
-                        // NVARCHAR & DATE & TIME
+                FMS_ODBC_MetaData EachMetaData = Array_MetaData[Index_Column_Raw];
+
+                FMS_ODBC_DataValue EachData;
+                EachData.ColumnName = EachMetaData.Column_Name;
+                EachData.DataType = EachMetaData.DataType;
+                EachData.Preview = PreviewString;
+
+                switch (EachMetaData.DataType)
+                {
+                    // NVARCHAR & DATE & TIME
                     case -9:
                     {
                         EachData.String = PreviewString;
@@ -197,10 +211,9 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
                         EachData.Note = "Currently there is no parser for this data type. Please convert it to another known type in your query !";
                         break;
                     }
-                    }
-
-                    Temp_Data_Pool.Add(FVector2D(Index_Row, Index_Column_Raw), EachData);
                 }
+
+                Temp_Data_Pool.Add(Position, EachData);
 
                 free(PreviewData);
                 PreviewData = nullptr;
@@ -225,7 +238,7 @@ bool UMS_ODBC_Result::RecordResult(FString& Out_Code)
     return true;
 }
 
-bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex)
+bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex)
 {
     if (ColumnIndex < 1)
     {
@@ -240,6 +253,7 @@ bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values
     }
 
     TArray<FString> Array_Temp;
+    int32 Index_Row = 0;
 
     try
     {
@@ -256,6 +270,8 @@ bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values
 
             free(TempData);
             TempData = nullptr;
+
+            Index_Row += 1;
         }
     }
 
@@ -265,8 +281,10 @@ bool UMS_ODBC_Result::ParseColumn(FString& Out_Code, TArray<FString>& Out_Values
         return false;
     }
 
+    this->Count_Row = Index_Row;
     Out_Values = Array_Temp;
-    Out_Code = "FF Microsoft ODBC : Parsing completed successfully !";
+    Out_Code = "FF Microsoft ODBC : Result successfully fetched !";
+
     return true;
 }
 
@@ -287,7 +305,7 @@ int32 UMS_ODBC_Result::GetAffectedRows()
     return this->Affected_Rows;
 }
 
-bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 RowIndex)
+bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 Index_Row)
 {
     if (this->Data_Pool.IsEmpty())
     {
@@ -295,7 +313,7 @@ bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_
         return false;
     }
 
-    if (RowIndex < 0 && this->Count_Row >= RowIndex)
+    if (Index_Row < 0 || Index_Row >= this->Count_Row)
     {
         Out_Code = "FF Microsoft ODBC : Given row index is out of data pool's range !";
         return false;
@@ -305,14 +323,31 @@ bool UMS_ODBC_Result::GetRow(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_
 
     for (int32 Index_Column = 0; Index_Column < this->Count_Column; Index_Column++)
     {
-        Temp_Array.Add(*this->Data_Pool.Find(FVector2D(RowIndex, Index_Column)));
+        const FVector2D Position = FVector2D(Index_Column, Index_Row);
+
+        if (!this->Data_Pool.Contains(Position))
+        {
+            Out_Code = "FF Microsoft ODBC : Target position couldn't be found ! : " + Position.ToString();
+            return false;
+        }
+
+        FMS_ODBC_DataValue* EachData = this->Data_Pool.Find(Position);
+
+        if (!EachData)
+        {
+            Out_Code = "FF Microsoft ODBC : Found data is not valid : " + Position.ToString();
+            return false;
+        }
+
+        Temp_Array.Add(*EachData);
     }
 
+    Out_Code = "FF Microsoft ODBC : Row exported successfully !";
     Out_Values = Temp_Array;
     return true;
 }
 
-bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 ColumnIndex)
+bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_DataValue>& Out_Values, int32 Index_Column)
 {
     if (this->Data_Pool.IsEmpty())
     {
@@ -320,7 +355,7 @@ bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_Data
         return false;
     }
 
-    if (ColumnIndex < 0 && this->Count_Column >= ColumnIndex)
+    if (Index_Column < 0 || Index_Column >= this->Count_Column)
     {
         Out_Code = "FF Microsoft ODBC : Given column index is out of data pool's range !";
         return false;
@@ -330,9 +365,26 @@ bool UMS_ODBC_Result::GetColumnFromIndex(FString& Out_Code, TArray<FMS_ODBC_Data
 
     for (int32 Index_Row = 0; Index_Row < this->Count_Row; Index_Row++)
     {
-        Temp_Array.Add(*this->Data_Pool.Find(FVector2D(Index_Row, ColumnIndex)));
+        const FVector2D Position = FVector2D(Index_Column, Index_Row);
+
+        if (!this->Data_Pool.Contains(Position))
+        {
+            Out_Code = "FF Microsoft ODBC : Target position couldn't be found ! : " + Position.ToString();
+            return false;
+        }
+
+        FMS_ODBC_DataValue* EachData = this->Data_Pool.Find(Position);
+
+        if (!EachData)
+        {
+            Out_Code = "FF Microsoft ODBC : Found data is not valid : " + Position.ToString();
+            return false;
+        }
+
+        Temp_Array.Add(*EachData);
     }
 
+    Out_Code = "FF Microsoft ODBC : Column exported successfully !";
     Out_Values = Temp_Array;
     return true;
 }
@@ -373,7 +425,7 @@ bool UMS_ODBC_Result::GetColumnFromName(FString& Out_Code, TArray<FMS_ODBC_DataV
     return this->GetColumnFromIndex(Out_Code, Out_Values, TargetIndex);
 }
 
-bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D TargetCell)
+bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_Value, FVector2D Position)
 {
     if (this->Data_Pool.IsEmpty())
     {
@@ -381,23 +433,23 @@ bool UMS_ODBC_Result::GetSingleData(FString& Out_Code, FMS_ODBC_DataValue& Out_V
         return false;
     }
 
-    if (TargetCell.X < 0 || TargetCell.Y < 0)
-    {
-        Out_Code = "FF Microsoft ODBC : Target position shouldn't be negative !";
-        return false;
-    }
-
-    if (TargetCell.X >= this->Count_Row || TargetCell.Y >= this->Count_Column)
+    if (Position.X < 0 || Position.Y < 0 || Position.X >= this->Count_Column || Position.Y >= this->Count_Row)
     {
         Out_Code = "FF Microsoft ODBC : Given position is out of data pool's range !";
         return false;
     }
 
-    FMS_ODBC_DataValue* DataValue = this->Data_Pool.Find(TargetCell);
+    if (!this->Data_Pool.Contains(Position))
+    {
+        Out_Code = "FF Microsoft ODBC : Target position couldn't be found ! : " + Position.ToString();
+        return false;
+    }
+
+    FMS_ODBC_DataValue* DataValue = this->Data_Pool.Find(Position);
 
     if (!DataValue)
     {
-        Out_Code = "FF Microsoft ODBC : Data couldn't be found !";
+        Out_Code = "FF Microsoft ODBC : Found data is not valid !";
         return false;
     }
 
