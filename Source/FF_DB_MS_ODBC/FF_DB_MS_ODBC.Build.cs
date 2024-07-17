@@ -9,6 +9,7 @@ public class FF_DB_MS_ODBC : ModuleRules
 	public FF_DB_MS_ODBC(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+		bEnableExceptions = true;
 
         PublicDependencyModuleNames.AddRange(
 			new string[]
