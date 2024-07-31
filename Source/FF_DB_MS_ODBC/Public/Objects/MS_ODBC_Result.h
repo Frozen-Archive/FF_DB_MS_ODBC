@@ -82,6 +82,7 @@ class FF_DB_MS_ODBC_API UMS_ODBC_Result : public UObject
 
 protected:
 
+	FString SentQuery;
 	SQLHSTMT SQL_Handle_Statement;
 
 	TMap<FVector2D, FMS_ODBC_DataValue> Data_Pool;
@@ -96,7 +97,7 @@ public:
 	// ADVANCE
 
 	virtual bool GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex);
-	virtual bool SetQueryResult(const SQLHSTMT& In_Handle);
+	virtual bool SetQueryResult(const SQLHSTMT& In_Handle, const FString& In_Query);
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool Result_Record(FString& Out_Code);

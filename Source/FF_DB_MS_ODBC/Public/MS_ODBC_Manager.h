@@ -9,13 +9,13 @@
 #include "Containers/Queue.h"
 
 // Custom Includes.
+#include "Objects/MS_ODBC_Result.h"
 #include "Objects/MS_ODBC_Thread.h"
-#include "Objects/MS_ODBC_Connection.h"
 
 #include "MS_ODBC_Manager.generated.h"
 
 UDELEGATE(BlueprintAuthorityOnly)
-DECLARE_DYNAMIC_DELEGATE_FourParams(FDelegate_MS_ODBC_Connection, bool, IsSuccessfull, FString, Out_Code, FString, CreatedString, UMS_ODBC_Connection*, Out_Connection);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FDelegate_MS_ODBC_Connection, bool, IsSuccessfull, FString, Out_Code, FString, CreatedString);
 
 UCLASS()
 class FF_DB_MS_ODBC_API AMS_ODBC_Manager : public AActor
@@ -30,7 +30,14 @@ protected:
 	// Called when the game end or when destroyed.
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	TMap<FString, UMS_ODBC_Connection*> MAP_Connections;
+private:
+
+	FString ConnectionId;
+	SQLHENV SQL_Handle_Environment;
+	SQLHDBC SQL_Handle_Connection;
+
+	virtual bool SetConnectionId(FString In_Id);
+	virtual bool ConnectDatabase(FString& Out_Code, FString& CreatedString, FString ODBC_Name, FString Username, FString Password, FString ServerInstance = "SQLEXPRESS");
 
 public:	
 	
@@ -44,6 +51,9 @@ public:
 	virtual void CreateConnection(FDelegate_MS_ODBC_Connection DelegateConnection, FString TargetServer, FString Username, FString Password, FString ServerInstance = "SQLEXPRESS");
 
 	UFUNCTION(BlueprintCallable)
-	virtual bool GetConnectionFromId(UMS_ODBC_Connection*& Out_Connection, FString In_Id);
+	virtual bool SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults);
+
+	UFUNCTION(BlueprintPure)
+	virtual FString GetConnectionId();
 
 };

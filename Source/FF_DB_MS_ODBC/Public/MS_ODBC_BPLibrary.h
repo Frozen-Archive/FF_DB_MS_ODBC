@@ -5,7 +5,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 
 // Custom Includes
-#include "Objects/MS_ODBC_Connection.h"
+#include "MS_ODBC_Manager.h"
 
 #include "MS_ODBC_BPLibrary.generated.h"
 

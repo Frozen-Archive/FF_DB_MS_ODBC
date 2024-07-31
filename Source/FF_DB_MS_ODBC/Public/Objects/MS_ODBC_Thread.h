@@ -7,9 +7,6 @@
 // UE Includes.
 #include "HAL/Runnable.h"
 
-// Custom Includes.
-#include "MS_ODBC_Connection.h"
-
 // Fordward Declerations.
 class FRunnableThread;
 class AMS_ODBC_Manager;

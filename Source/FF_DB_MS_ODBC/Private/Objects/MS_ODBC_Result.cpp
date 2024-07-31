@@ -2,7 +2,7 @@
 
 #define SQL_MAX_TEXT_LENGHT 65535
 
-bool UMS_ODBC_Result::SetQueryResult(const SQLHSTMT& In_Handle)
+bool UMS_ODBC_Result::SetQueryResult(const SQLHSTMT& In_Handle, const FString& In_Query)
 {
     if (!In_Handle)
     {
@@ -18,6 +18,7 @@ bool UMS_ODBC_Result::SetQueryResult(const SQLHSTMT& In_Handle)
     this->Affected_Rows = AffectedRows;
     this->Count_Column = ColumnNumber;
     this->SQL_Handle_Statement = In_Handle;
+    this->SentQuery = In_Query;
 
     return true;
 }
