@@ -30,12 +30,5 @@ public class FF_DB_MS_ODBC : ModuleRules
 				"SlateCore",
 			}
 			);
-		
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[]
-			{
-
-			}
-			);
 	}
 }
