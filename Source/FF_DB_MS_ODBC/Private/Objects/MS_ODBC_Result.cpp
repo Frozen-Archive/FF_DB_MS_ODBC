@@ -289,7 +289,7 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
     return true;
 }
 
-// RESULT - STANDARD
+// BLUEPRINT EXPOSED
 
 int32 UMS_ODBC_Result::GetColumnNumber()
 {
