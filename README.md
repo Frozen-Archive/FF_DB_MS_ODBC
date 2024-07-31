@@ -7,6 +7,6 @@ We used Microsoft Windows C++ ODBC API
 # INSTRUCTIONS
 Add this to 
 ```
-Project's Source/ProjectName/ProjectName.build.cs
+Project/Source/ProjectName/ProjectName.build.cs
 bEnableExceptions = true;
 ```
