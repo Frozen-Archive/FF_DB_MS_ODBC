@@ -26,37 +26,60 @@ void AMS_ODBC_Manager::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool AMS_ODBC_Manager::CreateConnection(UMS_ODBC_Connection*& Out_Connection, FString& Out_Code, FString& CreatedString, FString TargetServer, FString Username, FString Password, FString ServerInstance)
+void AMS_ODBC_Manager::CreateConnection(FDelegate_MS_ODBC_Connection DelegateConnection, FString TargetServer, FString Username, FString Password, FString ServerInstance)
 {
 	if (TargetServer.IsEmpty())
 	{
-		Out_Code = "FF Microsoft ODBC : Target server shouldn't be empty !";
-		return false;
+		DelegateConnection.ExecuteIfBound(false, "FF Microsoft ODBC : Target server shouldn't be empty !", "", nullptr);
+		return;
 	}
 
 	if (Username.IsEmpty())
 	{
-		Out_Code = "FF Microsoft ODBC : Username shouldn't be empty !";
-		return false;
+		DelegateConnection.ExecuteIfBound(false, "FF Microsoft ODBC : Username shouldn't be empty !", "", nullptr);
+		return;
 	}
-
-	const FString ConnectionId = TargetServer + "&&" + Username;
 
 	UMS_ODBC_Connection* ConnectionObject = NewObject<UMS_ODBC_Connection>();
 
-	if (!ConnectionObject->SetConnectionId(ConnectionId))
-	{
-		return false;
-	}
+	AsyncTask(ENamedThreads::AnyNormalThreadNormalTask, [this, DelegateConnection, ConnectionObject, TargetServer, Username, Password, ServerInstance]()
+		{
+			const FString ConnectionId = TargetServer + "&&" + Username;
 
-	if (!ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password, ServerInstance))
-	{
-		return false;
-	}
+			if (!ConnectionObject->SetConnectionId(ConnectionId))
+			{
+				AsyncTask(ENamedThreads::GameThread, [DelegateConnection, ConnectionObject]()
+					{
+						DelegateConnection.ExecuteIfBound(false, "FF Microsoft ODBC : Connection ID shouldn't be emptyh !", "", ConnectionObject);
+					}
+				);
 
-	this->MAP_Connections.Add(ConnectionId, ConnectionObject);
-	Out_Connection = ConnectionObject;
-	return true;
+				return;
+			}
+
+			FString Out_Code;
+			FString CreatedString;
+
+			if (!ConnectionObject->ConnectDatabase(Out_Code, CreatedString, TargetServer, Username, Password, ServerInstance))
+			{
+				AsyncTask(ENamedThreads::GameThread, [DelegateConnection, ConnectionObject, Out_Code, CreatedString]()
+					{
+						DelegateConnection.ExecuteIfBound(false, Out_Code, CreatedString, nullptr);
+					}
+				);
+
+				return;
+			}
+
+			this->MAP_Connections.Add(ConnectionId, ConnectionObject);
+			
+			AsyncTask(ENamedThreads::GameThread, [DelegateConnection, ConnectionObject, Out_Code, CreatedString]()
+				{
+					DelegateConnection.ExecuteIfBound(true, Out_Code, CreatedString, ConnectionObject);
+				}
+			);
+		}
+	);
 }
 
 bool AMS_ODBC_Manager::GetConnectionFromId(UMS_ODBC_Connection*& Out_Connection, FString In_Id)
