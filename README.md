@@ -5,5 +5,8 @@ This is an ODBC plugin for Unreal Engine 5 and Windows platform.
 We used Microsoft Windows C++ ODBC API
 
 # INSTRUCTIONS
-Add this to ``Projec's Source/ProjectName/ProjectName.build.cs`` </br>
-``bEnableExceptions = true;``
+Add this to 
+```
+Project's Source/ProjectName/ProjectName.build.cs
+bEnableExceptions = true;
+```
