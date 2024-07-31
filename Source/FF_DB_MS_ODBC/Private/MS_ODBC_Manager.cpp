@@ -154,6 +154,11 @@ FString AMS_ODBC_Manager::GetConnectionId()
 
 bool AMS_ODBC_Manager::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result, const FString& SQL_Query, bool bRecordResults)
 {
+	if (SQL_Query.IsEmpty())
+	{
+		return false;
+	}
+
 	if (!this->SQL_Handle_Connection)
 	{
 		Out_Code = "FF Microsoft ODBC : Connection handle is not valid !";
@@ -210,4 +215,36 @@ bool AMS_ODBC_Manager::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result
 	Out_Result = ResultObject;
 	Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";
 	return true;
+}
+
+void AMS_ODBC_Manager::SendQueryAsync(FDelegate_MS_ODBC_Execute DelegateExecute, const FString& SQL_Query, bool bRecordResults)
+{
+	UMS_ODBC_Result* Out_Result = NewObject<UMS_ODBC_Result>();
+	AsyncTask(ENamedThreads::AnyNormalThreadNormalTask, [this, DelegateExecute, &Out_Result, SQL_Query, bRecordResults]()
+		{
+			FString Out_Code;
+
+			if (this->SendQuery(Out_Code, Out_Result, SQL_Query, bRecordResults))
+			{
+				AsyncTask(ENamedThreads::GameThread, [DelegateExecute, Out_Code, Out_Result]()
+					{
+						DelegateExecute.ExecuteIfBound(true, Out_Code, Out_Result);
+					}
+				);
+
+				return;
+			}
+
+			else
+			{
+				AsyncTask(ENamedThreads::GameThread, [DelegateExecute, Out_Code]()
+					{
+						DelegateExecute.ExecuteIfBound(false, Out_Code, nullptr);
+					}
+				);
+
+				return;
+			}
+		}
+	);
 }

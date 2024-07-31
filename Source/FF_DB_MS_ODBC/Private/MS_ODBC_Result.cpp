@@ -1,4 +1,4 @@
-#include "Objects/MS_ODBC_Result.h"
+#include "MS_ODBC_Result.h"
 
 #define SQL_MAX_TEXT_LENGHT 65535
 

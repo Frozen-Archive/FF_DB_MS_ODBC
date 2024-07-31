@@ -7,6 +7,8 @@
 #include "JsonObjectWrapper.h"
 #include "JsonUtilities.h"
 
+#include "Containers/Queue.h"
+
 THIRD_PARTY_INCLUDES_START
 
 #define WIN32_LEAN_AND_MEAN
