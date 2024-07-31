@@ -59,6 +59,8 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     return true;
 }
 
+// BLUEPRINT EXPOSED
+
 bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
 {
     if (this->bIsResultRecorded)
@@ -237,6 +239,37 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
     return true;
 }
 
+void UMS_ODBC_Result::Result_Record_Async(FDelegate_MS_ODBC_Record DelegateRecord)
+{
+    AsyncTask(ENamedThreads::AnyNormalThreadNormalTask, [this, DelegateRecord]()
+        {
+            FString Out_Code;
+
+            if (this->Result_Record(Out_Code))
+            {
+                AsyncTask(ENamedThreads::GameThread, [DelegateRecord, Out_Code]()
+                    {
+                        DelegateRecord.ExecuteIfBound(true, Out_Code);
+                    }
+                );
+
+                return;
+            }
+
+            else
+            {
+                AsyncTask(ENamedThreads::GameThread, [DelegateRecord, Out_Code]()
+                    {
+                        DelegateRecord.ExecuteIfBound(false, Out_Code);
+                    }
+                );
+
+                return;
+            }
+        }
+    );
+}
+
 bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex)
 {
     if (ColumnIndex < 1)
@@ -287,7 +320,37 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
     return true;
 }
 
-// BLUEPRINT EXPOSED
+void UMS_ODBC_Result::Result_Fetch_Async(FDelegate_MS_ODBC_Fetch DelegateFetch, int32 ColumnIndex)
+{
+    AsyncTask(ENamedThreads::AnyNormalThreadNormalTask, [this, DelegateFetch, ColumnIndex]()
+        {
+            FString Out_Code;
+            TArray<FString> Out_Values;
+
+            if (this->Result_Fetch(Out_Code, Out_Values, ColumnIndex))
+            {
+                AsyncTask(ENamedThreads::GameThread, [DelegateFetch, Out_Code, Out_Values]()
+                    {
+                        DelegateFetch.ExecuteIfBound(true, Out_Code, Out_Values);
+                    }
+                );
+
+                return;
+            }
+
+            else
+            {
+                AsyncTask(ENamedThreads::GameThread, [DelegateFetch, Out_Code]()
+                    {
+                        DelegateFetch.ExecuteIfBound(false, Out_Code, TArray<FString>());
+                    }
+                );
+
+                return;
+            }
+        }
+    );
+}
 
 int32 UMS_ODBC_Result::GetColumnNumber()
 {

@@ -75,6 +75,12 @@ public:
 	int32 Column_Size = 0;
 };
 
+UDELEGATE(BlueprintAuthorityOnly)
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegate_MS_ODBC_Record, bool, IsSuccessfull, FString, Out_Code);
+
+UDELEGATE(BlueprintAuthorityOnly)
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FDelegate_MS_ODBC_Fetch, bool, IsSuccessfull, FString, Out_Code, const TArray<FString>&, Out_Values);
+
 UCLASS(BlueprintType)
 class FF_DB_MS_ODBC_API UMS_ODBC_Result : public UObject
 {
@@ -94,13 +100,16 @@ protected:
 
 public:
 
-	// ADVANCE
-
-	virtual bool GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex);
 	virtual bool SetQueryResult(const SQLHSTMT& In_Handle, const FString& In_Query);
+	virtual bool GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 ColumnIndex);
+
+	// BLUEPRINT EXPOSED
 
 	UFUNCTION(BlueprintCallable)
 	virtual bool Result_Record(FString& Out_Code);
+	
+	UFUNCTION(BlueprintCallable)
+	virtual void Result_Record_Async(FDelegate_MS_ODBC_Record DelegateRecord);
 
 	/*
 	* If you use "Record Result" system in anywhere for this result object, you can't use this function whitout executing query again.
@@ -110,7 +119,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual bool Result_Fetch(FString& Out_Code, TArray<FString>& Out_Values, int32 ColumnIndex = 1);
 
-	// STANDARD
+	/*
+	* If you use "Record Result" system in anywhere for this result object, you can't use this function whitout executing query again.
+	* You can't use "Record Result" system after this function. Because it will exhaust query result handle. This is ODBC and SQL related limitation.
+	* You can use this function only once per query.
+	*/
+	UFUNCTION(BlueprintCallable)
+	virtual void Result_Fetch_Async(FDelegate_MS_ODBC_Fetch DelegateFetch, int32 ColumnIndex = 1);
 
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetColumnNumber();
