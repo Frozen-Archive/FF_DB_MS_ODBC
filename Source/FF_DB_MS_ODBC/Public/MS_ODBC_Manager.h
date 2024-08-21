@@ -27,7 +27,7 @@ protected:
 	// Called when the game starts or when spawned.
 	virtual void BeginPlay() override;
 
-	// Called when the game end or when destroyed.
+	// Called when the game ends or when destroyed.
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:

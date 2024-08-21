@@ -2,25 +2,26 @@
 
 #include "MS_ODBC_Manager.h"
 
-// Sets default values
+// Sets default values.
 AMS_ODBC_Manager::AMS_ODBC_Manager()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-// Called when the game starts or when spawned
+// Called when the game starts or when spawned.
 void AMS_ODBC_Manager::BeginPlay()
 {
 	Super::BeginPlay();
 }
 
+// Called when the game ends or when destroyed.
 void AMS_ODBC_Manager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 }
 
-// Called every frame
+// Called every frame.
 void AMS_ODBC_Manager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
