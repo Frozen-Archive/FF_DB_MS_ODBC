@@ -34,7 +34,7 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     }
 
     const int32 Column_Name_Size = 256;
-    SQLCHAR* Column_Name = (SQLCHAR*)malloc(Column_Name_Size);
+    SQLCHAR Column_Name[Column_Name_Size];
     SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
     SQLULEN Column_Size;
 
@@ -57,9 +57,6 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     EachMetaData.Column_Size = Column_Size;
 
     Out_MetaData = EachMetaData;
-
-    free(Column_Name);
-    Column_Name = nullptr;
 
     return true;
 }
@@ -111,14 +108,11 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
                 }
 
                 SQLLEN PreviewLenght;
-                SQLCHAR* PreviewData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
+                SQLCHAR PreviewData[SQL_MAX_TEXT_LENGHT];
                 SQLRETURN RetCode = SQLGetData(this->SQL_Handle_Statement, Index_Column, SQL_CHAR, PreviewData, SQL_MAX_TEXT_LENGHT, &PreviewLenght);
 
                 if (!SQL_SUCCEEDED(RetCode))
                 {
-                    free(PreviewData);
-                    PreviewData = nullptr;
-
                     Out_Code = "FF Microsoft ODBC : There was a problem while getting SQL Data : " + Position.ToString();
                     return false;
                 }
@@ -220,9 +214,6 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
                 }
 
                 Temp_Data_Pool.Add(Position, EachData);
-
-                free(PreviewData);
-                PreviewData = nullptr;
             }
 
             bIsMetaDataCollected = true;
@@ -297,16 +288,13 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
         while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
         {
             SQLLEN ReceivedLenght;
-            SQLCHAR* TempData = (SQLCHAR*)malloc(SQL_MAX_TEXT_LENGHT);
+            SQLCHAR TempData[SQL_MAX_TEXT_LENGHT];
             SQLGetData(this->SQL_Handle_Statement, ColumnIndex, SQL_CHAR, TempData, SQL_MAX_TEXT_LENGHT, &ReceivedLenght);
 
             FString EachData;
             EachData.AppendChars((const char*)TempData, ReceivedLenght);
             EachData.TrimEndInline();
             Array_Temp.Add(EachData);
-
-            free(TempData);
-            TempData = nullptr;
 
             Index_Row += 1;
         }
