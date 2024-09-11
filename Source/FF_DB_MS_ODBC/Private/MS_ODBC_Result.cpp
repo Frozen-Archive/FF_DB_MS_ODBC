@@ -33,11 +33,12 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
         return false;
     }
 
-    SQLCHAR Column_Name[256];
+    const int32 Column_Name_Size = 256;
+    SQLCHAR* Column_Name = (SQLCHAR*)malloc(Column_Name_Size);
     SQLSMALLINT NameLen, DataType, DecimalDigits, Nullable;
     SQLULEN Column_Size;
 
-    SQLRETURN RetCode = SQLDescribeColA(this->SQL_Handle_Statement, ColumnIndex, Column_Name, 256, &NameLen, &DataType, &Column_Size, &DecimalDigits, &Nullable);
+    SQLRETURN RetCode = SQLDescribeColA(this->SQL_Handle_Statement, ColumnIndex, Column_Name, Column_Name_Size, &NameLen, &DataType, &Column_Size, &DecimalDigits, &Nullable);
 
     if (!SQL_SUCCEEDED(RetCode))
     {
@@ -56,6 +57,10 @@ bool UMS_ODBC_Result::GetEachMetaData(FMS_ODBC_MetaData& Out_MetaData, int32 Col
     EachMetaData.Column_Size = Column_Size;
 
     Out_MetaData = EachMetaData;
+
+    free(Column_Name);
+    Column_Name = nullptr;
+
     return true;
 }
 

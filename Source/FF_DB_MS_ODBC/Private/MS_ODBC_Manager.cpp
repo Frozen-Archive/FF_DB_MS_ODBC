@@ -177,8 +177,7 @@ bool AMS_ODBC_Manager::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result
 		return false;
 	}
 
-	const TCHAR* statementStringChar = *SQL_Query;
-	SQLWCHAR* SQLWCHARStatementString = (SQLWCHAR*)statementStringChar;
+	SQLWCHAR* SQLWCHARStatementString = (SQLWCHAR*)(*SQL_Query);
 	RetCode = SQLPrepare(Temp_Handle, SQLWCHARStatementString, SQL_NTS);
 
 	if (!SQL_SUCCEEDED(RetCode))
@@ -215,6 +214,9 @@ bool AMS_ODBC_Manager::SendQuery(FString& Out_Code, UMS_ODBC_Result*& Out_Result
 
 	Out_Result = ResultObject;
 	Out_Code = "FF Microsoft ODBC : Query executed and result object created successfully !";
+
+	delete(SQLWCHARStatementString);
+
 	return true;
 }
 
