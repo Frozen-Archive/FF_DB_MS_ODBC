@@ -83,11 +83,10 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
         return false;
     }
 
-    TMap<FVector2D, FMS_ODBC_DataValue> Temp_Data_Pool;
-    int32 Index_Row = 0;
-
     try
     {
+        TMap<FVector2D, FMS_ODBC_DataValue> Temp_Data_Pool;
+        int32 Index_Row = 0;
         bool bIsMetaDataCollected = false;
         TArray<FMS_ODBC_MetaData> Array_MetaData;
 
@@ -219,6 +218,13 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
             bIsMetaDataCollected = true;
             Index_Row += 1;
         }
+
+        this->Data_Pool = Temp_Data_Pool;
+        this->Count_Row = Index_Row;
+        this->bIsResultRecorded = true;
+
+        Out_Code = "FF Microsoft ODBC : Result successfuly recorded !";
+        return true;
     }
 
     catch (const std::exception& Exception)
@@ -226,13 +232,6 @@ bool UMS_ODBC_Result::Result_Record(FString& Out_Code)
         Out_Code = Exception.what();
         return false;
     }
-
-    this->Data_Pool = Temp_Data_Pool;
-    this->Count_Row = Index_Row;
-    this->bIsResultRecorded = true;
-
-    Out_Code = "FF Microsoft ODBC : Result successfuly recorded !";
-    return true;
 }
 
 void UMS_ODBC_Result::Result_Record_Async(FDelegate_MS_ODBC_Record DelegateRecord)
@@ -280,11 +279,11 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
         return false;
     }
 
-    TArray<FString> Array_Temp;
-    int32 Index_Row = 0;
-
     try
     {
+        TArray<FString> Array_Temp;
+        int32 Index_Row = 0;
+
         while (SQLFetch(this->SQL_Handle_Statement) == SQL_SUCCESS)
         {
             SQLLEN ReceivedLenght;
@@ -298,6 +297,12 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
 
             Index_Row += 1;
         }
+
+        this->Count_Row = Index_Row;
+        Out_Values = Array_Temp;
+        Out_Code = "FF Microsoft ODBC : Result successfully fetched !";
+
+        return true;
     }
 
     catch (const std::exception& Exception)
@@ -305,12 +310,6 @@ bool UMS_ODBC_Result::Result_Fetch(FString& Out_Code, TArray<FString>& Out_Value
         Out_Code = Exception.what();
         return false;
     }
-
-    this->Count_Row = Index_Row;
-    Out_Values = Array_Temp;
-    Out_Code = "FF Microsoft ODBC : Result successfully fetched !";
-
-    return true;
 }
 
 void UMS_ODBC_Result::Result_Fetch_Async(FDelegate_MS_ODBC_Fetch DelegateFetch, int32 ColumnIndex)
